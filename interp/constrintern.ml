@@ -1047,7 +1047,7 @@ let sort_fields ~complete loc fields completer =
                (* the order does not matter as we sort them next,
                   List.rev_* is just for efficiency *)
                let remaining_fields =
-                 let complete_field (idx, _field_ref) = (idx, completer idx) in
+                 let complete_field (idx, field_ref) = (idx, completer idx field_ref) in
                  List.rev_map complete_field remaining_projs in
                List.rev_append remaining_fields acc
         in
@@ -1157,7 +1157,7 @@ let drop_notations_pattern looked_for =
     | CPatAlias (loc, p, id) -> RCPatAlias (loc, in_pat top env p, id)
     | CPatRecord (loc, l) ->
       let sorted_fields =
-	sort_fields ~complete:false loc l (fun _idx -> (CPatAtom (loc, None))) in
+	sort_fields ~complete:false loc l (fun _idx _field_ref -> (CPatAtom (loc, None))) in
       begin match sorted_fields with
 	| None -> RCPatAtom (loc, None)
 	| Some (_, head, pl) ->
@@ -1507,8 +1507,18 @@ let internalize globalenv env allow_patvar lvar c =
 
     | CRecord (loc, r, fs) ->
 	let fields =
-	  sort_fields ~complete:true loc fs
-	    (fun _idx -> CHole (loc, Some (Evar_kinds.QuestionMark (Evar_kinds.Define true)), Misctypes.IntroAnonymous, None))
+	  sort_fields ~complete:(r = None) loc fs
+	    (fun _idx field_ref ->
+             match r with
+               | None ->
+                  CHole (loc, Some (Evar_kinds.QuestionMark (Evar_kinds.Define true)), Misctypes.IntroAnonymous, None)
+               | Some record ->
+                  let field =
+                    (* TODO: support the case where argument must be passed
+                       to the projection function, by inspecting the type of r *)
+                    Qualid (loc,shortest_qualid_of_global env.ids field_ref) in
+                  CApp (loc, (None, CRef(field, None)), [(record, None)])
+            )
 	in
 	begin
 	  match fields with
