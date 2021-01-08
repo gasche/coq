@@ -45,7 +45,7 @@ Instance Iclosed_cons T t (l:list T)
  : closed (t::l).
 Defined.
 
-Class reify (R:Type)`{Rr:Ring (T:=R)} (e:PExpr Z) (lvar:list R) (t:R).
+Class reify (R:Type) `{Rr:Ring (T:=R)} (e:PExpr Z) (lvar:list R) (t:R).
 
 Instance  reify_zero (R:Type)  lvar op
  `{Ring (T:=R)(ring0:=op)}
@@ -112,10 +112,10 @@ Instance  reify_opp (R:Type)
 Defined.
 
 Instance  reify_pow (R:Type) `{Ring R}
- e1 lvar t1 n 
+ e1 lvar t1 n
  `{Ring (T:=R)}
  {_:reify e1 lvar t1}
- : reify (PEpow e1 n) lvar (pow_N t1 n)|1.
+ : reify (PEpow e1 n) lvar (pow_N 1 mul t1 n)|1.
 Defined.
 
 Instance  reify_var (R:Type) t lvar i 

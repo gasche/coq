@@ -301,23 +301,27 @@ and load_keep i ((sp,kn),kobjs) =
 let mark_object f obj (exports,acc) =
   (exports, (f,obj)::acc)
 
-let rec collect_module_objects (f,mp) acc =
+let rec collect_module_objects_rev acc (f,mp) =
   (* May raise Not_found for unknown module and for functors *)
   let modobjs = ModObjs.get mp in
   let prefix = modobjs.module_prefix in
-  let acc = collect_objects f 1 prefix modobjs.module_keep_objects acc in
-  collect_objects f 1 prefix modobjs.module_substituted_objects acc
+  let acc = collect_objects_rev f 1 prefix acc modobjs.module_substituted_objects in
+  collect_objects_rev f 1 prefix acc modobjs.module_keep_objects
 
-and collect_object f i (name, obj as o) acc =
+and collect_object_rev f i acc (name, obj as o) =
   match obj with
-  | ExportObject { mpl } -> collect_export f i mpl acc
+  | ExportObject { mpl } -> collect_export_rev f i acc mpl
   | AtomicObject _ | IncludeObject _ | KeepObject _
   | ModuleObject _ | ModuleTypeObject _ -> mark_object f o acc
 
-and collect_objects f i prefix objs acc =
-  List.fold_right (fun (id, obj) acc -> collect_object f i (Lib.make_oname prefix id, obj) acc) objs acc
+and collect_objects_rev f i prefix acc objs =
+  List.fold_left
+    (fun acc (id, obj) ->
+       collect_object_rev f i acc
+         (Lib.make_oname prefix id, obj))
+    acc objs
 
-and collect_one_export f (f',mp) (exports,objs as acc) =
+and collect_one_export_rev f (exports,objs as acc) (f',mp) =
   match filter_and f f' with
   | None -> acc
   | Some f ->
@@ -334,12 +338,12 @@ and collect_one_export f (f',mp) (exports,objs as acc) =
     *)
     if exports == exports' then acc
     else
-      collect_module_objects (f,mp) (exports', objs)
+      collect_module_objects_rev (exports', objs) (f,mp)
 
 
-and collect_export f i mpl acc =
+and collect_export_rev f i acc mpl =
   if Int.equal i 1 then
-    List.fold_right (collect_one_export f) mpl acc
+    List.fold_left (collect_one_export_rev f) acc mpl
   else acc
 
 let open_modtype i ((sp,kn),_) =
@@ -388,7 +392,8 @@ and open_include f i ((sp,kn), aobjs) =
   open_objects f i prefix o
 
 and open_export f i mpl =
-  let _,objs = collect_export f i mpl (MPmap.empty, []) in
+  let _,objs_rev = collect_export_rev f i (MPmap.empty, []) mpl in
+  let objs = List.rev objs_rev in
   List.iter (fun (f,o) -> open_object f 1 o) objs
 
 and open_keep f i ((sp,kn),kobjs) =
@@ -1056,7 +1061,8 @@ let end_library ?except ~output_native_objects dir =
   cenv,(substitute,keep),ast
 
 let import_modules ~export mpl =
-  let _,objs = List.fold_right collect_module_objects mpl (MPmap.empty, []) in
+  let _,objs_rev = List.fold_left collect_module_objects_rev (MPmap.empty, []) mpl in
+  let objs = List.rev objs_rev in
   List.iter (fun (f,o) -> open_object f 1 o) objs;
   if export then Lib.add_anonymous_entry (Lib.Leaf (ExportObject { mpl }))
 
