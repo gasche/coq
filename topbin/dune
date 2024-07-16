@@ -9,9 +9,19 @@
  (name coqtop_byte_bin)
  (public_name coqtop.byte)
  (package coq-core)
- (modules coqtop_byte_bin)
+ (modules coqtop_byte_bin register_symtable_error_handler)
  (libraries compiler-libs.toplevel coq-core.config.byte coq-core.toplevel coq-core.dev findlib.top)
  (modes byte))
+
+(rule
+ (target register_symtable_error_handler.ml)
+ (action (copy register_symtable_error_handler.old.ml %{target}))
+ (enabled_if (< %{ocaml_version} 5.3)))
+
+(rule
+ (target register_symtable_error_handler.ml)
+ (action (copy register_symtable_error_handler.new.ml %{target}))
+ (enabled_if (>= %{ocaml_version} 5.3)))
 
 (executable
  (name coqc_bin)

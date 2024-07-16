@@ -9,12 +9,7 @@
 (************************************************************************)
 
 (* We register this handler for lower-level toplevel loading code *)
-let () = CErrors.register_handler (function
-    | Symtable.Error e ->
-      Some (Pp.str (Format.asprintf "%a" Symtable.report_error e))
-    | _ ->
-      None
-  )
+let () = Register_symtable_error_handler.register ()
 
 (* Another bit of text is printed in the [include_utilities] file, so the default one is not need *)
 let () = Clflags.noversion := true
