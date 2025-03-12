@@ -448,11 +448,27 @@ let warn_require_in_module =
     (fun () -> strbrk "Use of “Require” inside a module is fragile." ++ spc() ++
                strbrk "It is not recommended to use this functionality in finished proof scripts.")
 
+let ramp_up_config =
+  match Sys.getenv "RAMP_UP" with
+  | "yes" | "1" -> true
+  | "no" | "0" -> false
+  | exception Not_found -> false
+  | other ->
+    Printf.ksprintf failwith
+      "incorrect RAMP_UP value %S, expected [yes|no|1|0]." other
+
+let ramp_up f =
+  if not ramp_up_config
+  then f ()
+  else fst (Gc.ramp_up f)
+
 let require_library_from_dirpath needed =
   if Lib.is_module_or_modtype () then warn_require_in_module ();
+  ramp_up @@ fun () ->
   Lib.add_leaf (in_require needed)
 
 let require_library_syntax_from_dirpath ~intern modrefl =
+  ramp_up @@ fun () ->
   let needed, contents = List.fold_left (rec_intern_library ~intern) ([], DPmap.empty) modrefl in
   let needed = List.rev_map (fun (root, dir) -> root, DPmap.find dir contents) needed in
   Lib.add_leaf (in_require_syntax needed);
